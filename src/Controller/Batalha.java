@@ -1,10 +1,10 @@
 package Controller; // Declara que pertence ao pacote Controller
 
-
 import Dominio.Elemento;
 import Dominio.Heroi;
 import Dominio.Inimigo;
 import Dominio.Personagem;
+import Dominio.Arma;
 
 import java.util.Random;
 import java.util.Scanner;
@@ -12,6 +12,7 @@ import java.util.Scanner;
 /**
  * CONTROLADOR/SERVIÇO
  * Orquestra a lógica de um combate entre um herói e um inimigo.
+ * Atualizado para exibir o tipo da arma no status.
  */
 public class Batalha {
 
@@ -78,8 +79,6 @@ public class Batalha {
                 break;
             case 5:
                 System.out.println("Você fugiu da batalha!");
-                // Para simplificar, vamos fazer o herói "morrer" ao fugir para encerrar o jogo.
-                // Uma lógica melhor seria apenas sair da batalha.
                 heroi.receberDano(9999);
                 break;
             default:
@@ -99,7 +98,8 @@ public class Batalha {
                 ? elementoAtaque.efetividadeContra(defensor.getElemento())
                 : 1.0;
 
-        int danoFinal = (int) ((danoBase - defensor.getDefesa() / 2) * multiplicador);
+        double mitigacao = defensor.getDefesa() / 2.0;
+        int danoFinal = (int) ((danoBase - mitigacao) * multiplicador);
         if (danoFinal < 0) danoFinal = 0;
 
         if (elementoAtaque != null) {
@@ -126,7 +126,16 @@ public class Batalha {
         System.out.println(" Ataque: " + heroi.getAtaque());
         System.out.println(" Defesa: " + heroi.getDefesa());
         System.out.println(" Poções: " + heroi.getPotesDeCura());
-        System.out.println(" Arma: " + heroi.getArma().getNome() + " (" + heroi.getArma().getEspecial() + ")");
+        Arma arma = heroi.getArma();
+        if (arma != null) {
+            System.out.println(" Arma: " + arma.getNome() + " (" + arma.getEspecial() + ")");
+            System.out.println(" Tipo de Arma: " + arma.getTipo() + " | Escala: " + arma.getEscala() + "x");
+        } else {
+            System.out.println(" Arma: Nenhuma");
+        }
+        System.out.println(" Força: " + heroi.getForca());
+        System.out.println(" Destreza: " + heroi.getDestreza());
+        System.out.println(" Constituição: " + heroi.getConstituicao());
         System.out.println("==============\n");
     }
 }

@@ -49,7 +49,7 @@ public class InimigoFactory {
         // RAROS
         TEMPLATES.add(new Template("Harpia", 70, 14, 6, Elemento.AR, Raridade.RARO, 1.25));
         TEMPLATES.add(new Template("Necromante Aprendiz", 65, 16, 5, Elemento.SOMBRA, Raridade.RARO, 1.25));
-        TEMPLATES.add(new Template("Escudeiro Orco", 80, 18, 8, Elemento.TERRA, Raridade.RARO, 1.25));
+        TEMPLATES.add(new Template("Escudeiro Orc", 80, 18, 8, Elemento.TERRA, Raridade.RARO, 1.25));
 
         // ELITE
         TEMPLATES.add(new Template("Cavaleiro Sombrio", 120, 22, 12, Elemento.SOMBRA, Raridade.ELITE, 1.6));

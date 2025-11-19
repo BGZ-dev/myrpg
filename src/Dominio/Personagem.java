@@ -1,10 +1,11 @@
 package Dominio;
 
+import Dominio.Elemento;
+
 /**
  * DOMÍNIO
  * Classe base abstrata para todas as entidades vivas do jogo.
- * Agora inclui o atributo 'encantamento' (antes chamado sorte).
- * Mantém getSorte() por compatibilidade.
+ * Agora com suporte a cooldowns de reação (esquiva / bloqueio).
  */
 public abstract class Personagem {
     protected String nome;
@@ -13,19 +14,16 @@ public abstract class Personagem {
     protected int defesa;
     protected Elemento elemento;
 
-    // Novos atributos primários
     protected int forca;
     protected int destreza;
     protected int constituicao;
     protected int inteligencia;
-
-    // Encantamento (substitui/consolida o papel de 'sorte')
     protected int encantamento;
 
-    /**
-     * Construtor legado (compatível com uso existente).
-     * Mantém comportamento anterior e deriva atributos primários.
-     */
+    // cooldowns de reação (em turnos)
+    protected int dodgeCooldownRemaining = 0;
+    protected int blockCooldownRemaining = 0;
+
     public Personagem(String nome, int vida, int ataque, int defesa, Elemento elemento) {
         this.nome = nome;
         this.vida = vida;
@@ -33,18 +31,13 @@ public abstract class Personagem {
         this.defesa = defesa;
         this.elemento = elemento;
 
-        // Deriva atributos básicos para retrocompatibilidade
         this.forca = Math.max(1, ataque / 2);
         this.destreza = Math.max(1, ataque / 4);
         this.constituicao = Math.max(1, defesa / 2);
         this.inteligencia = Math.max(0, ataque / 4);
-        // antes sorte = 1; agora encantamento derivado de forma conservadora
         this.encantamento = Math.max(1, ataque / 4);
     }
 
-    /**
-     * Novo construtor que recebe atributos primários diretamente.
-     */
     public Personagem(String nome, int vida, int forca, int destreza, int constituicao, int inteligencia, int encantamento, Elemento elemento) {
         this.nome = nome;
         this.vida = vida;
@@ -55,7 +48,6 @@ public abstract class Personagem {
         this.encantamento = Math.max(0, encantamento);
         this.elemento = elemento;
 
-        // derivação
         this.ataque = this.forca * 2 + this.destreza;
         this.defesa = this.constituicao * 2;
     }
@@ -67,26 +59,40 @@ public abstract class Personagem {
     public int getDefesa() { return defesa; }
     public int getAtaque() { return ataque; }
 
-    // Getters dos atributos primários
     public int getForca() { return forca; }
     public int getDestreza() { return destreza; }
     public int getConstituicao() { return constituicao; }
     public int getInteligencia() { return inteligencia; }
-
-    // Novo getter: Encantamento
     public int getEncantamento() { return encantamento; }
-
-    // Compatibilidade: mantém getSorte() retornando encantamento
-    public int getSorte() { return encantamento; }
+    public int getSorte() { return encantamento; } // compatibilidade
 
     public void receberDano(int dano) {
         this.vida -= dano;
         if (this.vida < 0) this.vida = 0;
     }
 
-    // Cura por efeitos (usada por Bruxo / efeitos)
     public void curarPor(int amount) {
         this.vida += amount;
+    }
+
+    // cooldowns: getters / aplicadores / decrementador
+    public int getDodgeCooldownRemaining() { return dodgeCooldownRemaining; }
+    public int getBlockCooldownRemaining() { return blockCooldownRemaining; }
+
+    public void applyDodgeCooldown(int turns) {
+        this.dodgeCooldownRemaining = Math.max(this.dodgeCooldownRemaining, turns);
+    }
+
+    public void applyBlockCooldown(int turns) {
+        this.blockCooldownRemaining = Math.max(this.blockCooldownRemaining, turns);
+    }
+
+    /**
+     * Decrementa todos os cooldowns em 1 turno (chamar ao fim de cada rodada)
+     */
+    public void decrementarCooldowns() {
+        if (dodgeCooldownRemaining > 0) dodgeCooldownRemaining--;
+        if (blockCooldownRemaining > 0) blockCooldownRemaining--;
     }
 
     public abstract int calcularDanoBase();

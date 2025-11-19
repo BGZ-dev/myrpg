@@ -7,10 +7,7 @@ import Dominio.Heroi;
 
 /**
  * Strategy composta: decide a sequência de tentativas com base na categoria da arma do defensor.
- * Exemplo:
- *  - LAMINA -> apenas Dodge
- *  - BRANCA_SEM_LAMINA -> Dodge then Block (and possibly Counter)
- *  - LONGA_DISTANCIA -> Dodge then Block
+ * Versão compatível com JDKs sem switch-expression (usa switch tradicional).
  */
 public class WeaponCategoryReactionStrategy {
     private final DodgeStrategy dodge = new DodgeStrategy();
@@ -20,14 +17,11 @@ public class WeaponCategoryReactionStrategy {
     public ReactionResult attemptReactions(Personagem atacante, Personagem defensor, int danoBase, Elemento elemento) {
         ReactionResult result;
 
-        // tenta identificar arma/categoria do defensor (se tiver)
         Arma arma = null;
         if (defensor instanceof Heroi) {
             arma = ((Heroi) defensor).getArma();
         } else {
-            // Se quiser suportar armas em inimigos, ajuste aqui para verificar Inimigo também
             try {
-                // tentativa segura caso Inimigo venha a expor arma mais tarde
                 java.lang.reflect.Method m = defensor.getClass().getMethod("getArma");
                 Object o = m.invoke(defensor);
                 if (o instanceof Arma) arma = (Arma) o;
@@ -36,7 +30,6 @@ public class WeaponCategoryReactionStrategy {
 
         Arma.Categoria cat = (arma != null) ? arma.getCategoria() : null;
 
-        // Ordem de tentativas por categoria
         if (cat == Arma.Categoria.LAMINA) {
             result = dodge.attempt(atacante, defensor, danoBase, elemento);
             return result;
@@ -46,11 +39,8 @@ public class WeaponCategoryReactionStrategy {
 
             result = block.attempt(atacante, defensor, danoBase, elemento);
             if (result.blocked) {
-                // se bloqueou, tentar contra
                 ReactionResult counterR = counter.attempt(atacante, defensor, danoBase, elemento);
-                // combinar resultados: soma counterDamage (se houver)
                 result.counterDamage = Math.max(result.counterDamage, counterR.counterDamage);
-                // concatena mensagens se houver
                 if (counterR.message != null && !counterR.message.isEmpty()) {
                     result.message = (result.message == null ? "" : result.message + " ") + counterR.message;
                 }
@@ -65,6 +55,33 @@ public class WeaponCategoryReactionStrategy {
             result = dodge.attempt(atacante, defensor, danoBase, elemento);
             if (result.dodged) return result;
             return block.attempt(atacante, defensor, danoBase, elemento);
+        }
+    }
+
+    /**
+     * Tenta apenas a reação pedida. Retorna ReactionResult com o resultado.
+     */
+    public ReactionResult attemptSpecific(Personagem atacante, Personagem defensor, int danoBase, Elemento elemento, ReactionService.ReactionType type) {
+        // Retornamos sempre o resultado da strategy correspondente
+        if (type == ReactionService.ReactionType.DODGE) {
+            return dodge.attempt(atacante, defensor, danoBase, elemento);
+        } else if (type == ReactionService.ReactionType.BLOCK) {
+            return block.attempt(atacante, defensor, danoBase, elemento);
+        } else if (type == ReactionService.ReactionType.COUNTER) {
+            // Para COUNTER, tentamos block primeiro (counter geralmente depende de bloqueio)
+            ReactionResult blockR = block.attempt(atacante, defensor, danoBase, elemento);
+            if (blockR.blocked) {
+                ReactionResult counterR = counter.attempt(atacante, defensor, danoBase, elemento);
+                blockR.counterDamage = Math.max(blockR.counterDamage, counterR.counterDamage);
+                if (counterR.message != null && !counterR.message.isEmpty()) {
+                    blockR.message = (blockR.message == null ? "" : blockR.message + " ") + counterR.message;
+                }
+            }
+            return blockR;
+        } else {
+            ReactionResult r = new ReactionResult();
+            r.damageTaken = Math.max(0, danoBase);
+            return r;
         }
     }
 }

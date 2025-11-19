@@ -9,7 +9,7 @@ import java.util.Random;
  *
  * Suporta:
  * - Construtor legado (nome, arma) para compatibilidade.
- * - Novo construtor que recebe atributos primários (força, destreza, constituição).
+ * - Novo construtor que recebe atributos primários (força, destreza, constituição, inteligência, sorte).
  */
 public class Heroi extends Personagem {
     private int nivel;
@@ -21,12 +21,11 @@ public class Heroi extends Personagem {
     // Fatores de balanceamento (ajuste conforme necessário)
     private static final double MULT_FORCA_DANO = 1.5;
     private static final double MULT_DEX_DANO = 1.4;
-    private static final double CRIT_CHANCE_BASE = 0.05; // 5% base
+    private static final double CRIT_CHANCE_BASE = 0.03; // 3% base
     private static final double CRIT_BONUS = 1.5; // 50% a mais no dano crítico
 
     /**
      * Construtor legado (mantido para compatibilidade).
-     * Usa valores base e a arma adiciona um bônus simples à força.
      */
     public Heroi(String nome, Arma arma) {
         super(
@@ -35,6 +34,8 @@ public class Heroi extends Personagem {
                 10 + arma.getBonusAtaque(),        // força base recebe bônus da arma (modelagem simples)
                 8,                                 // destreza base
                 10,                                // constituição base
+                8,                                 // inteligencia base
+                5,                                 // sorte base
                 null
         );
         this.arma = arma;
@@ -50,9 +51,8 @@ public class Heroi extends Personagem {
 
     /**
      * Novo construtor que permite criar um herói com atributos primários explícitos.
-     * Usar quando o jogador distribuir pontos (forca/destreza/constituicao).
      */
-    public Heroi(String nome, Arma arma, int forcaInicial, int destrezaInicial, int constituicaoInicial) {
+    public Heroi(String nome, Arma arma, int forcaInicial, int destrezaInicial, int constituicaoInicial, int inteligenciaInicial, int sorteInicial) {
         super(
                 nome,
                 // Vida base inicial já considera constituição
@@ -60,6 +60,8 @@ public class Heroi extends Personagem {
                 forcaInicial,
                 destrezaInicial,
                 constituicaoInicial,
+                inteligenciaInicial,
+                sorteInicial,
                 null
         );
         this.arma = arma;
@@ -76,7 +78,7 @@ public class Heroi extends Personagem {
 
     @Override
     public int calcularDanoBase() {
-        // Calcula dano base considerando tipo da arma:
+        // Calcula dano base considerando tipo da arma e sorte
         double dano = this.ataque; // valor base derivado de atributos
 
         Arma.TipoArma tipo = arma != null ? arma.getTipo() : Arma.TipoArma.NEUTRA;
@@ -85,44 +87,42 @@ public class Heroi extends Personagem {
         switch (tipo) {
             case FORCA -> {
                 dano += this.forca * MULT_FORCA_DANO * escala;
-                // pequena variação aleatória baseada na força
                 dano += rand.nextInt(Math.max(1, this.forca / 2));
             }
             case DESTREZA -> {
                 dano += this.destreza * MULT_DEX_DANO * escala;
-                // dado crítico influenciado pela destreza
-                double critChance = CRIT_CHANCE_BASE + (this.destreza * 0.01); // +1% por ponto de destreza
+                double critChance = CRIT_CHANCE_BASE + (this.destreza * 0.01) + (this.sorte * 0.005);
                 boolean crit = rand.nextDouble() < critChance;
                 dano += rand.nextInt(Math.max(1, this.destreza));
                 if (crit) {
                     dano = Math.round((float)(dano * CRIT_BONUS));
-                    System.out.println("✨ Acerto crítico! (Destreza) ✨");
+                    System.out.println("✨ Acerto crítico! (Destreza/Sorte) ✨");
                 }
             }
             default -> {
-                // neutra: usa apenas ataque + variação pela destreza
                 dano += rand.nextInt(Math.max(1, this.destreza));
             }
         }
 
-        // garante inteiro não-negativo
         int danoFinal = Math.max(0, (int) Math.round(dano));
         return danoFinal;
     }
 
     public int calcularDanoEspecial() {
-        // Ataque especial combina força/destreza com multiplicadores maiores
+        // Ataque especial combina força/destreza com Inteligência influenciando dano mágico/elemental
         double dano = this.ataque * 2;
         Arma.TipoArma tipo = arma != null ? arma.getTipo() : Arma.TipoArma.NEUTRA;
         double escala = arma != null ? arma.getEscala() : 1.0;
+
+        // Inteligência dá bônus ao especial (representa controle/força mágica/tática)
+        dano += this.inteligencia * 1.2 * escala;
 
         if (tipo == Arma.TipoArma.FORCA) {
             dano += this.forca * (MULT_FORCA_DANO + 0.8) * escala;
             dano += rand.nextInt(15);
         } else if (tipo == Arma.TipoArma.DESTREZA) {
             dano += this.destreza * (MULT_DEX_DANO + 0.8) * escala;
-            // maior chance de crítico no especial
-            double critChance = CRIT_CHANCE_BASE + (this.destreza * 0.015);
+            double critChance = CRIT_CHANCE_BASE + (this.destreza * 0.015) + (this.sorte * 0.005);
             if (rand.nextDouble() < critChance) {
                 dano *= CRIT_BONUS;
                 System.out.println("💥 Crítico no ataque especial!");
@@ -158,6 +158,8 @@ public class Heroi extends Personagem {
             forca += 2;
             destreza += 1;
             constituicao += 2;
+            inteligencia += 1;
+            sorte += 1;
 
             // atualiza stats derivados e vida
             ataque = forca * 2 + destreza;
@@ -171,10 +173,12 @@ public class Heroi extends Personagem {
         forca += 1;
         destreza += 1;
         constituicao += 1;
+        inteligencia += 1;
+        sorte += 1;
         // atualiza stats derivados
         ataque = forca * 2 + destreza;
         defesa = constituicao * 2;
-        System.out.println("✨ " + nome + " ficou mais forte! (+1 FOR, +1 DES, +1 CON permanentemente)");
+        System.out.println("✨ " + nome + " ficou mais forte! (+1 FOR, +1 DES, +1 CON, +1 INT, +1 SORTE permanentemente)");
     }
 
     // Getters para a camada de View (IU)

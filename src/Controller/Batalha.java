@@ -1,4 +1,4 @@
-package Controller; // Declara que pertence ao pacote Controller
+package Controller;
 
 import Dominio.Elemento;
 import Dominio.Heroi;
@@ -12,7 +12,7 @@ import java.util.Scanner;
 /**
  * CONTROLADOR/SERVIÇO
  * Orquestra a lógica de um combate entre um herói e um inimigo.
- * Atualizado para exibir o tipo da arma no status.
+ * Atualizado para exibir os novos atributos no status.
  */
 public class Batalha {
 
@@ -27,10 +27,6 @@ public class Batalha {
         this.scanner = scanner;
     }
 
-    /**
-     * Inicia o loop de combate.
-     * @return true se o herói venceu, false se foi derrotado ou fugiu.
-     */
     public boolean iniciar() {
         System.out.println("\n🔥 Um inimigo apareceu: " + inimigo.getNome() + " (" + inimigo.getElemento() + ")!");
 
@@ -136,6 +132,8 @@ public class Batalha {
         System.out.println(" Força: " + heroi.getForca());
         System.out.println(" Destreza: " + heroi.getDestreza());
         System.out.println(" Constituição: " + heroi.getConstituicao());
+        System.out.println(" Inteligência: " + heroi.getInteligencia());
+        System.out.println(" Sorte: " + heroi.getSorte());
         System.out.println("==============\n");
     }
 }

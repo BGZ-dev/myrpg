@@ -3,6 +3,8 @@ package Dominio;
 /**
  * DOMÍNIO
  * Classe base abstrata para todas as entidades vivas do jogo.
+ * Agora inclui o atributo 'encantamento' (antes chamado sorte).
+ * Mantém getSorte() por compatibilidade.
  */
 public abstract class Personagem {
     protected String nome;
@@ -11,12 +13,19 @@ public abstract class Personagem {
     protected int defesa;
     protected Elemento elemento;
 
+    // Novos atributos primários
     protected int forca;
     protected int destreza;
     protected int constituicao;
     protected int inteligencia;
-    protected int sorte;
 
+    // Encantamento (substitui/consolida o papel de 'sorte')
+    protected int encantamento;
+
+    /**
+     * Construtor legado (compatível com uso existente).
+     * Mantém comportamento anterior e deriva atributos primários.
+     */
     public Personagem(String nome, int vida, int ataque, int defesa, Elemento elemento) {
         this.nome = nome;
         this.vida = vida;
@@ -24,23 +33,29 @@ public abstract class Personagem {
         this.defesa = defesa;
         this.elemento = elemento;
 
+        // Deriva atributos básicos para retrocompatibilidade
         this.forca = Math.max(1, ataque / 2);
         this.destreza = Math.max(1, ataque / 4);
         this.constituicao = Math.max(1, defesa / 2);
         this.inteligencia = Math.max(0, ataque / 4);
-        this.sorte = 1;
+        // antes sorte = 1; agora encantamento derivado de forma conservadora
+        this.encantamento = Math.max(1, ataque / 4);
     }
 
-    public Personagem(String nome, int vida, int forca, int destreza, int constituicao, int inteligencia, int sorte, Elemento elemento) {
+    /**
+     * Novo construtor que recebe atributos primários diretamente.
+     */
+    public Personagem(String nome, int vida, int forca, int destreza, int constituicao, int inteligencia, int encantamento, Elemento elemento) {
         this.nome = nome;
         this.vida = vida;
         this.forca = Math.max(1, forca);
         this.destreza = Math.max(1, destreza);
         this.constituicao = Math.max(1, constituicao);
         this.inteligencia = Math.max(0, inteligencia);
-        this.sorte = Math.max(0, sorte);
+        this.encantamento = Math.max(0, encantamento);
         this.elemento = elemento;
 
+        // derivação
         this.ataque = this.forca * 2 + this.destreza;
         this.defesa = this.constituicao * 2;
     }
@@ -52,11 +67,17 @@ public abstract class Personagem {
     public int getDefesa() { return defesa; }
     public int getAtaque() { return ataque; }
 
+    // Getters dos atributos primários
     public int getForca() { return forca; }
     public int getDestreza() { return destreza; }
     public int getConstituicao() { return constituicao; }
     public int getInteligencia() { return inteligencia; }
-    public int getSorte() { return sorte; }
+
+    // Novo getter: Encantamento
+    public int getEncantamento() { return encantamento; }
+
+    // Compatibilidade: mantém getSorte() retornando encantamento
+    public int getSorte() { return encantamento; }
 
     public void receberDano(int dano) {
         this.vida -= dano;

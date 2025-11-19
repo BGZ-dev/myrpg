@@ -4,14 +4,8 @@ import Dominio.Classes.Classe;
 import java.util.Random;
 
 /**
- * Classe Heroi (implementação compatível com Batalha).
- * Contém:
- * - public void ganharExperiencia(int xp)
- * - public void buffPermanente()
- * - public int calcularDanoEspecial()
- * - public void curar()
- *
- * Mantém também construtor legado e novo construtor que aceita Classe.
+ * Herói atualizado para suportar Encantamento (antes Sorte) e encantamentos temporários
+ * aplicáveis à arma ou aos punhos (energia amaldiçoada).
  */
 public class Heroi extends Personagem {
     private int nivel;
@@ -19,14 +13,21 @@ public class Heroi extends Personagem {
     private int potesDeCura;
     private Arma arma;
     private Random rand = new Random();
-    private Classe classe; // opcional
+    private Classe classe; // nova
+
+    // Campos para encantamento ativo (aplicados por Bruxo)
+    private boolean encantamentoAtivo = false;
+    private Elemento encantamentoElemento = null;
+    private boolean encantamentoNoArma = true; // se false => punhos
+    private double encantamentoMultiplicador = 0.0;
+    private int encantamentoTurnos = 0;
 
     private static final double MULT_FORCA_DANO = 1.5;
     private static final double MULT_DEX_DANO = 1.4;
     private static final double CRIT_CHANCE_BASE = 0.03;
     private static final double CRIT_BONUS = 1.5;
 
-    // Construtor legado (mantido para compatibilidade)
+    // Construtor legado (mantido)
     public Heroi(String nome, Arma arma) {
         super(nome, 100 + 10 * 2, 10 + arma.getBonusAtaque(), 8, 10, 8, 5, null);
         this.arma = arma;
@@ -40,8 +41,8 @@ public class Heroi extends Personagem {
     }
 
     // Novo construtor que aceita Classe e atributos primários
-    public Heroi(String nome, Arma arma, int forcaInicial, int destrezaInicial, int constituicaoInicial, int inteligenciaInicial, int sorteInicial, Classe classe) {
-        super(nome, 100 + constituicaoInicial * 2, forcaInicial, destrezaInicial, constituicaoInicial, inteligenciaInicial, sorteInicial, null);
+    public Heroi(String nome, Arma arma, int forcaInicial, int destrezaInicial, int constituicaoInicial, int inteligenciaInicial, int encantamentoInicial, Classe classe) {
+        super(nome, 100 + constituicaoInicial * 2, forcaInicial, destrezaInicial, constituicaoInicial, inteligenciaInicial, encantamentoInicial, null);
         this.arma = arma;
         this.nivel = 1;
         this.experiencia = 0;
@@ -69,12 +70,12 @@ public class Heroi extends Personagem {
             }
             case DESTREZA -> {
                 dano += this.destreza * MULT_DEX_DANO * escala;
-                double critChance = CRIT_CHANCE_BASE + (this.destreza * 0.01) + (this.sorte * 0.005);
+                double critChance = CRIT_CHANCE_BASE + (this.destreza * 0.01) + (this.getSorte() * 0.005);
                 boolean crit = rand.nextDouble() < critChance;
                 dano += rand.nextInt(Math.max(1, this.destreza));
                 if (crit) {
                     dano = Math.round((float)(dano * CRIT_BONUS));
-                    System.out.println("✨ Acerto crítico! (Destreza/Sorte) ✨");
+                    System.out.println("✨ Acerto crítico! (Destreza/Encantamento) ✨");
                 }
             }
             default -> {
@@ -88,16 +89,26 @@ public class Heroi extends Personagem {
         if (classe != null) {
             danoFinal = classe.modificarDanoSaida(this, danoFinal, null);
         }
+
+        // Aplicar encantamento ativo: aumenta dano conforme encantamento e tipo (arma/punhos)
+        if (encantamentoAtivo) {
+            // Potência base do encantamento dependente do atributo encantamento (antes "sorte")
+            int ench = Math.max(0, this.getEncantamento());
+            int bonus = (int) Math.round(ench * this.encantamentoMultiplicador);
+            danoFinal += bonus;
+            // mensagem curta
+            System.out.println("🔰 Encantamento ativo (" + encantamentoElemento + "): +" + bonus + " dano.");
+        }
+
         return danoFinal;
     }
 
-    // método chamado por Batalha para ataques especiais
     public int calcularDanoEspecial() {
+        // mantemos o especial antigo como fallback/uso interno — classes podem delegar a ele se desejarem
         double dano = this.ataque * 2;
         Arma.TipoArma tipo = arma != null ? arma.getTipo() : Arma.TipoArma.NEUTRA;
         double escala = arma != null ? arma.getEscala() : 1.0;
 
-        // Inteligência contribui para o especial
         dano += this.inteligencia * 1.2 * escala;
 
         if (tipo == Arma.TipoArma.FORCA) {
@@ -105,7 +116,7 @@ public class Heroi extends Personagem {
             dano += rand.nextInt(15);
         } else if (tipo == Arma.TipoArma.DESTREZA) {
             dano += this.destreza * (MULT_DEX_DANO + 0.8) * escala;
-            double critChance = CRIT_CHANCE_BASE + (this.destreza * 0.015) + (this.sorte * 0.005);
+            double critChance = CRIT_CHANCE_BASE + (this.destreza * 0.015) + (this.getSorte() * 0.005);
             if (rand.nextDouble() < critChance) {
                 dano *= CRIT_BONUS;
                 System.out.println("💥 Crítico no ataque especial!");
@@ -117,13 +128,18 @@ public class Heroi extends Personagem {
 
         int danoFinal = Math.max(0, (int) Math.round(dano));
         if (classe != null) {
-            // permite que a classe modifique o especial se desejar (usa modificarDanoSaida)
             danoFinal = classe.modificarDanoSaida(this, danoFinal, null);
+        }
+        // encantamento também pode influenciar especiais (se ativo)
+        if (encantamentoAtivo) {
+            int ench = Math.max(0, this.getEncantamento());
+            int bonus = (int) Math.round(ench * this.encantamentoMultiplicador);
+            danoFinal += bonus;
+            System.out.println("🔰 Encantamento (especial): +" + bonus + " dano.");
         }
         return danoFinal;
     }
 
-    // método chamado por Batalha quando jogador escolhe "Usar Poção"
     public void curar() {
         if (potesDeCura > 0) {
             int cura = 30 + this.constituicao / 2;
@@ -137,19 +153,17 @@ public class Heroi extends Personagem {
         }
     }
 
-    // método chamado por Batalha ao final de uma vitória para adicionar XP
     public void ganharExperiencia(int xp) {
         experiencia += xp;
         System.out.println(nome + " ganhou " + xp + " de experiência!");
         if (experiencia >= 100 * nivel) {
-            experiencia -= 100 * nivel; // mantem excesso
+            experiencia -= 100 * nivel;
             nivel++;
-            // bônus ao subir de nível
             forca += 2;
             destreza += 1;
             constituicao += 2;
             inteligencia += 1;
-            sorte += 1;
+            encantamento += 1; // crescimento do encantamento ao subir de nível
 
             ataque = forca * 2 + destreza;
             defesa = constituicao * 2;
@@ -158,19 +172,45 @@ public class Heroi extends Personagem {
         }
     }
 
-    // chamado por Batalha após vitória para "dar um pequeno buff permanente"
     public void buffPermanente() {
         forca += 1;
         destreza += 1;
         constituicao += 1;
         inteligencia += 1;
-        sorte += 1;
+        encantamento += 1;
         ataque = forca * 2 + destreza;
         defesa = constituicao * 2;
-        System.out.println("✨ " + nome + " ficou mais forte! (+1 FOR, +1 DES, +1 CON, +1 INT, +1 SORTE permanentemente)");
+        System.out.println("✨ " + nome + " ficou mais forte! (+1 FOR, +1 DES, +1 CON, +1 INT, +1 ENC permanentemente)");
     }
 
-    // cura aplicada por efeitos (ex.: Bruxo lifesteal)
+    // Métodos para gerir encantamento aplicado pelo Bruxo
+    public void aplicarEncantamento(Elemento elemento, boolean noArma, double multiplicador, int turnos) {
+        this.encantamentoAtivo = true;
+        this.encantamentoElemento = elemento;
+        this.encantamentoNoArma = noArma;
+        this.encantamentoMultiplicador = multiplicador;
+        this.encantamentoTurnos = Math.max(1, turnos);
+        System.out.println("🔰 Encantamento aplicado: " + (noArma ? "arma" : "punhos") + " | elemento: " + elemento + " | +" + multiplicador + " por " + this.encantamentoTurnos + " turnos.");
+    }
+
+    // Decrementa duração do encantamento; chamar ao fim de rodada
+    public void tickEncantamento() {
+        if (!encantamentoAtivo) return;
+        encantamentoTurnos--;
+        if (encantamentoTurnos <= 0) {
+            encantamentoAtivo = false;
+            encantamentoElemento = null;
+            encantamentoMultiplicador = 0.0;
+            encantamentoTurnos = 0;
+            System.out.println("🔰 Encantamento expirou.");
+        }
+    }
+
+    public boolean isEncantamentoAtivo() { return encantamentoAtivo; }
+    public Elemento getEncantamentoElemento() { return encantamentoElemento; }
+    public boolean isEncantamentoNoArma() { return encantamentoNoArma; }
+
+    // Quando curar por efeitos (Bruxo), respeita vida máxima do herói
     @Override
     public void curarPor(int amount) {
         int vidaMax = 100 + (nivel - 1) * 20 + constituicao * 2;
@@ -178,12 +218,11 @@ public class Heroi extends Personagem {
         if (this.vida > vidaMax) this.vida = vidaMax;
     }
 
-    // helper para outras classes estimarem vida máxima
     public int getVidaMaximaEstimada() {
         return 100 + (nivel - 1) * 20 + constituicao * 2;
     }
 
-    // getters e setters usados pelo restante do código
+    // getters e setters
     public int getNivel() { return nivel; }
     public int getPotesDeCura() { return potesDeCura; }
     public Arma getArma() { return arma; }

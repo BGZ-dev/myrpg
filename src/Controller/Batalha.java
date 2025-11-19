@@ -9,16 +9,20 @@ import Dominio.Invocacao;
 import Dominio.Classes.Classe;
 import Dominio.Classes.AcaoResultado;
 
+import Services.ReactionService;
+import Services.ReactionResult;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 import java.util.Scanner;
 
 /**
- * Batalha adaptada: a opção 2 (ATAQUE ESPECIAL) passa a executar a AÇÃO DA CLASSE.
- * - A opção 1 continua sendo ataque normal
- * - A opção 2 chama classe.executarAcao(...) (se houver classe)
- * - As invocações atacam após a ação do herói (tanto ataque normal quanto ação de classe)
+ * Batalha adaptada:
+ * - Opção 2 = Ação da Classe
+ * - Quando o defensor for o Heroi e for atacado, o jogador é convidado a reagir manualmente
+ *   (esquiva / bloqueio / contra-ataque) com base na categoria da arma e atributos.
+ * - Se o jogador não reagir (entrada inválida) ou se ReactionService falhar, usamos resolução automática.
  */
 public class Batalha {
 
@@ -43,6 +47,9 @@ public class Batalha {
 
             // Efeitos por turno da classe (ex.: invocador)
             if (heroi.getClasse() != null) heroi.getClasse().aoFinalDoTurno(heroi, inimigo);
+
+            // Decrementa duração de encantamentos aplicados ao herói
+            heroi.tickEncantamento();
 
             // Limpar invocações mortas
             invocacoes.removeIf(inv -> !inv.estaVivo());
@@ -77,16 +84,14 @@ public class Batalha {
 
         switch (escolha) {
             case 1 -> {
-                System.out.println(heroi.getNome() + " ataca com " + heroi.getArma().getNome() + "!");
+                System.out.println(heroi.getNome() + " ataca com " + (heroi.getArma() != null ? heroi.getArma().getNome() : "punhos") + "!");
                 realizarAtaque(heroi, inimigo, heroi.calcularDanoBase(), null);
                 // invocações atacam após ataque do herói
                 invocarAtacar();
             }
             case 2 -> {
-                // AÇÃO DA CLASSE em lugar do antigo "ataque especial"
                 Classe cls = heroi.getClasse();
                 if (cls == null) {
-                    // Se não tem classe, como fallback, executa o cálculo especial antigo
                     System.out.println("Nenhuma classe atribuída — executando ataque especial padrão.");
                     Elemento elementoAtaque = escolherElemento(scanner);
                     System.out.println(heroi.getNome() + " usa ATAQUE ESPECIAL (" + elementoAtaque + ")!");
@@ -102,7 +107,7 @@ public class Batalha {
             case 3 -> heroi.curar();
             case 4 -> {
                 mostrarStatusHeroi();
-                // não gasta turno
+                // não consome turno
                 turnoDoHeroi();
             }
             case 5 -> {
@@ -132,69 +137,178 @@ public class Batalha {
         realizarAtaque(inimigo, heroi, inimigo.calcularDanoBase(), inimigo.getElemento());
     }
 
-    private void aplicarAcaoResultado(AcaoResultado res) {
-        if (res == null) return;
-        if (res.mensagem != null && !res.mensagem.isEmpty()) System.out.println(res.mensagem);
-
-        if (res.curaAoHeroi != 0) {
-            if (res.curaAoHeroi > 0) {
-                heroi.curarPor(res.curaAoHeroi);
-                System.out.println(heroi.getNome() + " recuperou " + res.curaAoHeroi + " de vida.");
-            } else {
-                // perda de vida (ex.: barbaro sacrifica vida)
-                heroi.receberDano(-res.curaAoHeroi);
-                System.out.println(heroi.getNome() + " perdeu " + (-res.curaAoHeroi) + " de vida.");
-            }
-        }
-        if (res.danoAoInimigo > 0) {
-            System.out.println("Ação causa " + res.danoAoInimigo + " dano ao inimigo.");
-            inimigo.receberDano(res.danoAoInimigo);
-        }
-        if (res.tempAtkBuff > 0 && res.tempAtkBuffTurnos > 0) {
-            heroi.setAtaque(heroi.getAtaque() + res.tempAtkBuff);
-            System.out.println("Ataque temporário aplicado: +" + res.tempAtkBuff + " por " + res.tempAtkBuffTurnos + " turnos.");
-            // Nota: para expiração automática dos buffs, implemente tracking em Heroi (opcional).
-        }
-        if (res.tempDefBuff > 0 && res.tempDefBuffTurnos > 0) {
-            heroi.setDefesa(heroi.getDefesa() + res.tempDefBuff);
-            System.out.println("Defesa temporária aplicada: +" + res.tempDefBuff + " por " + res.tempDefBuffTurnos + " turnos.");
-        }
-        if (res.lifestealBonus > 0 && res.lifestealTurnos > 0) {
-            System.out.println("Lifesteal aumentado em " + (int)(res.lifestealBonus*100) + "% por " + res.lifestealTurnos + " turnos.");
-            // Para funcionamento real, armazene o multiplicador temporário em Heroi e use ao curar por lifesteal.
-        }
-        if (res.invocacao != null) {
-            invocacoes.add(res.invocacao);
-            System.out.println(res.invocacao.getNome() + " foi invocado com " + res.invocacao.getVida() + " vida.");
-        }
-    }
-
+    /**
+     * Realiza um ataque aplicando efeitos elementais e delegando a reação.
+     * Se o defensor for o herói e for jogador (ou seja, defender é humano), chama promptHeroReaction
+     * para permitir escolha de esquiva / bloqueio / contra; caso contrário tenta ReactionService.
+     */
     private void realizarAtaque(Personagem atacante, Personagem defensor, int danoBase, Elemento elementoAtaque) {
+        // aplica modificador elemental
         double multiplicador = (elementoAtaque != null)
                 ? elementoAtaque.efetividadeContra(defensor.getElemento())
                 : 1.0;
 
+        // mitigação por defesa
         double mitigacao = defensor.getDefesa() / 2.0;
-        int danoFinal = (int) Math.round((danoBase - mitigacao) * multiplicador);
-        if (danoFinal < 0) danoFinal = 0;
+        int danoCalculado = (int) Math.round((danoBase - mitigacao) * multiplicador);
+        if (danoCalculado < 0) danoCalculado = 0;
 
         if (elementoAtaque != null) {
             System.out.printf("⚡ Efeito elemental: %.1fx (%s vs %s)%n", multiplicador, elementoAtaque, defensor.getElemento());
         }
 
-        // Aplicar possibilidade de reação (se tiver ReactionService integrado)
+        // Se defensor for o herói (jogador), ofereça a escolha de reagir manualmente
+        if (defensor instanceof Heroi && atacante instanceof Inimigo) {
+            boolean choiceHandled = promptHeroReaction((Heroi) defensor, atacante, danoCalculado, elementoAtaque);
+            if (choiceHandled) return; // reação do jogador lidou com tudo
+            // se não foi tratada (entrada inválida), cairá para resolução automática abaixo
+        }
+
+        // fallback: tentar ReactionService (se disponível) — útil para NPCs e se o jogador não reagiu
+        ReactionResult reaction = null;
+        try {
+            reaction = ReactionService.resolveReaction(atacante, defensor, danoCalculado, elementoAtaque);
+        } catch (Throwable t) {
+            System.out.println("⚠️ Erro ao resolver reação automática: " + t.getMessage() + " — aplicando dano padrão.");
+        }
+
+        if (reaction == null) {
+            System.out.println(defensor.getNome() + " recebeu " + danoCalculado + " de dano!");
+            defensor.receberDano(danoCalculado);
+            return;
+        }
+
+        // interpreta o ReactionResult
+        if (reaction.dodged) {
+            System.out.println(reaction.message != null && !reaction.message.isEmpty() ? reaction.message : defensor.getNome() + " esquivou-se!");
+            return;
+        }
+        if (reaction.blocked) {
+            System.out.println(reaction.message != null && !reaction.message.isEmpty() ? reaction.message : defensor.getNome() + " bloqueou o ataque!");
+            int danoAReceber = Math.max(0, reaction.damageTaken);
+            System.out.println(defensor.getNome() + " recebeu " + danoAReceber + " de dano após o bloqueio!");
+            defensor.receberDano(danoAReceber);
+            if (reaction.counterDamage > 0) {
+                System.out.println(defensor.getNome() + " contra-ataca causando " + reaction.counterDamage + " a " + atacante.getNome() + "!");
+                atacante.receberDano(reaction.counterDamage);
+            }
+            return;
+        }
+
+        // sem reação efetiva
+        int danoFinal = Math.max(0, reaction.damageTaken);
         System.out.println(defensor.getNome() + " recebeu " + danoFinal + " de dano!");
         defensor.receberDano(danoFinal);
+        if (reaction.counterDamage > 0) {
+            System.out.println(defensor.getNome() + " causa " + reaction.counterDamage + " de contra-ataque a " + atacante.getNome() + "!");
+            atacante.receberDano(reaction.counterDamage);
+        }
+    }
 
-        // Lifesteal do Bruxo: se atacante é Heroi com Bruxo, curar parte do dano
-        if (atacante instanceof Heroi) {
-            Heroi hAt = (Heroi) atacante;
-            if (hAt.getClasse() != null && hAt.getClasse().getNome().equals("Bruxo")) {
-                int heal = Math.max(1, danoFinal / 4);
-                hAt.curarPor(heal);
-                System.out.println("🔮 Bruxo drena vida e recupera " + heal + " de vida!");
+    /**
+     * Prompt interativo para o jogador (Heroi) escolher reação quando for atacado por um inimigo.
+     * Retorna true se a escolha foi válida e a reação aplicada; false se entrada inválida (para fallback).
+     */
+    private boolean promptHeroReaction(Heroi heroiDef, Personagem atacante, int danoCalculado, Elemento elementoAtaque) {
+        Arma arma = heroiDef.getArma();
+        Arma.Categoria cat = arma != null ? arma.getCategoria() : null;
+
+        // determinar opções disponíveis
+        boolean podeEsquivar = true;
+        boolean podeBloquear = true;
+        boolean podeContra = false;
+        if (cat != null) {
+            switch (cat) {
+                case LAMINA -> { podeEsquivar = true; podeBloquear = false; }
+                case BRANCA_SEM_LAMINA -> { podeEsquivar = true; podeBloquear = true; podeContra = true; }
+                case LONGA_DISTANCIA -> { podeEsquivar = true; podeBloquear = true; podeContra = false; }
+            }
+        } else {
+            // sem arma: permitir esquiva e bloqueio básicos
+            podeEsquivar = true; podeBloquear = true;
+        }
+
+        // Exibir menu de reação
+        System.out.println("\nVocê está sendo atacado! Escolha sua reação:");
+        int optionIndex = 1;
+        int optEsquiva = -1, optBloqueio = -1, optContra = -1, optNada = -1;
+        if (podeEsquivar) { optEsquiva = optionIndex++; System.out.println(optEsquiva + ". Esquivar"); }
+        if (podeBloquear) { optBloqueio = optionIndex++; System.out.println(optBloqueio + ". Bloquear"); }
+        if (podeContra)   { optContra = optionIndex++; System.out.println(optContra + ". Contra-Atacar (requer bloqueio bem-sucedido)"); }
+        optNada = optionIndex++; System.out.println(optNada + ". Não reagir / Fazer nada");
+
+        System.out.print("Escolha (número): ");
+        int escolha = -1;
+        try {
+            escolha = scanner.nextInt();
+            scanner.nextLine();
+        } catch (Exception e) {
+            scanner.nextLine();
+            System.out.println("Entrada inválida — reação ignorada.");
+            return false;
+        }
+
+        // Se jogador escolheu não reagir
+        if (escolha == optNada) {
+            System.out.println("Você optou por não reagir.");
+            System.out.println(heroiDef.getNome() + " recebeu " + danoCalculado + " de dano!");
+            heroiDef.receberDano(danoCalculado);
+            return true;
+        }
+
+        // ESQUIVA
+        if (escolha == optEsquiva) {
+            double chance = 0.20 + (heroiDef.getDestreza() * 0.02);
+            if (chance > 0.90) chance = 0.90;
+            double roll = rand.nextDouble();
+            if (roll < chance) {
+                System.out.println("✨ Você esquivou com sucesso!");
+                // opcional: aplicar cooldown aqui se desejar
+                return true;
+            } else {
+                System.out.println("Você tentou esquivar, mas falhou.");
+                // recebe dano normalmente (sem outras reações)
+                System.out.println(heroiDef.getNome() + " recebeu " + danoCalculado + " de dano!");
+                heroiDef.receberDano(danoCalculado);
+                return true;
             }
         }
+
+        // BLOQUEIO (e possivelmente CONTRA)
+        if (escolha == optBloqueio || escolha == optContra) {
+            double chance = 0.30 + (heroiDef.getConstituicao() * 0.02);
+            if (chance > 0.95) chance = 0.95;
+            double roll = rand.nextDouble();
+            if (roll < chance) {
+                double reducao = 0.30 + (heroiDef.getConstituicao() * 0.01);
+                if (reducao > 0.85) reducao = 0.85;
+                int danoReduzido = (int) Math.round(danoCalculado * (1.0 - reducao));
+                if (danoReduzido < 0) danoReduzido = 0;
+                System.out.println("🛡️ Bloqueio bem-sucedido! Dano reduzido para " + danoReduzido + ".");
+                heroiDef.receberDano(danoReduzido);
+
+                // se escolheu contra e categoria permite, rolar chance de contra
+                if (escolha == optContra && podeContra) {
+                    double probContra = Math.min(0.5, heroiDef.getConstituicao() * 0.02);
+                    if (rand.nextDouble() < probContra) {
+                        int contra = (int) Math.round(heroiDef.getConstituicao() / 2.0 + heroiDef.calcularDanoBase() * 0.5);
+                        System.out.println("⚡ Contra-ataque! Você causa " + contra + " de dano ao atacante!");
+                        atacante.receberDano(Math.max(0, contra));
+                    } else {
+                        System.out.println("Tentativa de contra-ataque falhou.");
+                    }
+                }
+                return true;
+            } else {
+                System.out.println("Bloqueio falhou. Você recebeu " + danoCalculado + " de dano!");
+                heroiDef.receberDano(danoCalculado);
+                return true;
+            }
+        }
+
+        // escolha inválida -> fallback
+        System.out.println("Escolha inválida — reação ignorada.");
+        return false;
     }
 
     private Elemento escolherElemento(Scanner scanner) {
@@ -208,6 +322,45 @@ public class Batalha {
             scanner.nextLine();
         }
         return Elemento.values()[Math.max(0, Math.min(7, escolha-1))];
+    }
+
+    private void aplicarAcaoResultado(AcaoResultado res) {
+        if (res == null) return;
+        if (res.mensagem != null && !res.mensagem.isEmpty()) System.out.println(res.mensagem);
+
+        if (res.curaAoHeroi != 0) {
+            if (res.curaAoHeroi > 0) {
+                heroi.curarPor(res.curaAoHeroi);
+                System.out.println(heroi.getNome() + " recuperou " + res.curaAoHeroi + " de vida.");
+            } else {
+                heroi.receberDano(-res.curaAoHeroi);
+                System.out.println(heroi.getNome() + " perdeu " + (-res.curaAoHeroi) + " de vida.");
+            }
+        }
+
+        if (res.danoAoInimigo > 0) {
+            System.out.println("Ação causa " + res.danoAoInimigo + " dano ao inimigo.");
+            inimigo.receberDano(res.danoAoInimigo);
+        }
+
+        if (res.tempAtkBuff > 0 && res.tempAtkBuffTurnos > 0) {
+            heroi.setAtaque(heroi.getAtaque() + res.tempAtkBuff);
+            System.out.println("Ataque temporário aplicado: +" + res.tempAtkBuff + " por " + res.tempAtkBuffTurnos + " turnos.");
+        }
+
+        if (res.tempDefBuff > 0 && res.tempDefBuffTurnos > 0) {
+            heroi.setDefesa(heroi.getDefesa() + res.tempDefBuff);
+            System.out.println("Defesa temporária aplicada: +" + res.tempDefBuff + " por " + res.tempDefBuffTurnos + " turnos.");
+        }
+
+        if (res.lifestealBonus > 0 && res.lifestealTurnos > 0) {
+            System.out.println("Lifesteal aumentado em " + (int)(res.lifestealBonus*100) + "% por " + res.lifestealTurnos + " turnos.");
+        }
+
+        if (res.invocacao != null) {
+            invocacoes.add(res.invocacao);
+            System.out.println(res.invocacao.getNome() + " foi invocado com " + res.invocacao.getVida() + " vida.");
+        }
     }
 
     private void mostrarStatusHeroi() {
@@ -230,7 +383,10 @@ public class Batalha {
         System.out.println(" Destreza: " + heroi.getDestreza());
         System.out.println(" Constituição: " + heroi.getConstituicao());
         System.out.println(" Inteligência: " + heroi.getInteligencia());
-        System.out.println(" Sorte: " + heroi.getSorte());
+        System.out.println(" Encantamento: " + heroi.getEncantamento());
+        if (heroi.isEncantamentoAtivo()) {
+            System.out.println(" Encantamento ativo: " + heroi.getEncantamentoElemento() + " | Alvo: " + (heroi.isEncantamentoNoArma() ? "Arma" : "Punhos"));
+        }
         if (!invocacoes.isEmpty()) {
             System.out.println(" Invocações ativas:");
             for (Invocacao p : invocacoes) {

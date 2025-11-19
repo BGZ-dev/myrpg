@@ -6,15 +6,17 @@ import Dominio.Heroi;
 import Dominio.Inimigo;
 import Services.ArmaFactory;
 import Services.InimigoFactory;
+import Dominio.Classes.Assassino;
+import Dominio.Classes.Guerreiro;
+import Dominio.Classes.Barbaro;
+import Dominio.Classes.Mago;
+import Dominio.Classes.Bruxo;
+import Dominio.Classes.Invocador;
+import Dominio.Classes.Classe;
 
 import java.util.InputMismatchException;
 import java.util.Scanner;
 
-/**
- * APLICAÇÃO / PONTO DE ENTRADA
- * Atualizada para permitir que o jogador distribua até 20 pontos entre Força, Destreza,
- * Constituição, Inteligência e Sorte no momento da criação.
- */
 public class RPGGame {
 
     public static void main(String[] args) {
@@ -62,7 +64,6 @@ public class RPGGame {
             }
         }
 
-        // Base de atributos do herói (compatível com os valores anteriores)
         int baseForca = 10 + armaEscolhida.getBonusAtaque();
         int baseDestreza = 8;
         int baseConstituicao = 10;
@@ -82,11 +83,40 @@ public class RPGGame {
         System.out.println(" Inteligência: " + inteligenciaFinal);
         System.out.println(" Sorte: " + sorteFinal);
 
-        Heroi heroi = new Heroi(nomeHeroi, armaEscolhida, forcaFinal, destrezaFinal, constituicaoFinal, inteligenciaFinal, sorteFinal);
+        // Escolha de classe
+        System.out.println("\nEscolha sua classe:");
+        System.out.println("1. Assassino | 2. Guerreiro | 3. Bárbaro | 4. Mago | 5. Bruxo | 6. Invocador");
+        int escolhaClasse = 0;
+        while (true) {
+            try {
+                System.out.print("Escolha (1-6): ");
+                escolhaClasse = scanner.nextInt();
+                scanner.nextLine();
+                if (escolhaClasse < 1 || escolhaClasse > 6) {
+                    System.out.println("Escolha inválida. Tente novamente.");
+                    continue;
+                }
+                break;
+            } catch (InputMismatchException e) {
+                System.out.println("Entrada inválida. Use um número.");
+                scanner.nextLine();
+            }
+        }
+
+        Classe classeEscolhida;
+        switch (escolhaClasse) {
+            case 1 -> classeEscolhida = new Assassino();
+            case 2 -> classeEscolhida = new Guerreiro();
+            case 3 -> classeEscolhida = new Barbaro();
+            case 4 -> classeEscolhida = new Mago();
+            case 5 -> classeEscolhida = new Bruxo();
+            default -> classeEscolhida = new Invocador();
+        }
+
+        Heroi heroi = new Heroi(nomeHeroi, armaEscolhida, forcaFinal, destrezaFinal, constituicaoFinal, inteligenciaFinal, sorteFinal, classeEscolhida);
 
         System.out.println("\nOlá, " + heroi.getNome() + "! Sua jornada começa agora...\n");
 
-        // Loop principal do jogo
         while (heroi.estaVivo()) {
             Inimigo inimigo = InimigoFactory.gerarInimigoAleatorio(heroi.getNivel());
 

@@ -29,7 +29,7 @@ public class RPGGame {
         Arma armaEscolhida = ArmaFactory.escolherArma(scanner);
 
         final int pontosTotais = 20;
-        int forcaExtra = 0, destrezaExtra = 0, constituicaoExtra = 0, inteligenciaExtra = 0, sorteExtra = 0;
+        int forcaExtra =    0, destrezaExtra = 0, constituicaoExtra = 0, inteligenciaExtra = 0, sorteExtra = 0;
 
         System.out.println("\nVocê tem até " + pontosTotais + " pontos para distribuir entre Força, Destreza, Constituição, Inteligência e Sorte.");
         System.out.println("Valores base: Força=10 + bônus da arma, Destreza=8, Constituição=10, Inteligência=8, Sorte=5.");

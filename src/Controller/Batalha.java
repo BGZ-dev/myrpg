@@ -18,8 +18,13 @@ import java.util.Random;
 import java.util.Scanner;
 
 /**
- * Batalha — atualizado para delegar reações manuais ao ReactionService.attemptSpecificReaction(...)
- * (versão compatível com JDKs sem switch-expression).
+ * Batalha — atualizado:
+ * - delega reações manuais ao ReactionService.attemptSpecificReaction(...)
+ * - aplica modificarDanoEntrada da classe do defensor (quando houver) antes de aplicar dano
+ * - imprime mensagens retornadas pelas strategies (sucesso/falha)
+ * - decrementa cooldowns e tick de encantamento a cada rodada
+ *
+ * Compatível com JDKs que não suportam switch-expression (usa switch tradicional).
  */
 public class Batalha {
 
@@ -128,7 +133,9 @@ public class Batalha {
             if (!pet.estaVivo()) continue;
             int danoPet = pet.calcularDanoBase();
             System.out.println(pet.getNome() + " ataca e causa " + danoPet + " ao inimigo!");
-            inimigo.receberDano(danoPet);
+            // aplicar modificador de classe do inimigo (se houver) antes de aplicar dano
+            int danoAjustado = aplicarModificadorClasseAoDanoRecebido(inimigo, danoPet, pet);
+            inimigo.receberDano(danoAjustado);
             if (!inimigo.estaVivo()) {
                 System.out.println(inimigo.getNome() + " foi derrotado pela invocação!");
                 break;
@@ -142,6 +149,10 @@ public class Batalha {
         realizarAtaque(inimigo, heroi, inimigo.calcularDanoBase(), inimigo.getElemento());
     }
 
+    /**
+     * Realiza um ataque aplicando efeitos elementais e delegando a reação.
+     * O dano final aplicado ao defensor passa pelo modificador de classe (se defender for Heroi com classe).
+     */
     private void realizarAtaque(Personagem atacante, Personagem defensor, int danoBase, Elemento elementoAtaque) {
         double multiplicador = (elementoAtaque != null)
                 ? elementoAtaque.efetividadeContra(defensor.getElemento())
@@ -161,7 +172,7 @@ public class Batalha {
             if (handled) return;
         }
 
-        // fallback automático
+        // fallback automático via ReactionService
         ReactionResult reaction = null;
         try {
             reaction = ReactionService.resolveReaction(atacante, defensor, danoCalculado, elementoAtaque);
@@ -170,35 +181,44 @@ public class Batalha {
         }
 
         if (reaction == null) {
-            System.out.println(defensor.getNome() + " recebeu " + danoCalculado + " de dano!");
-            defensor.receberDano(danoCalculado);
+            int danoParaAplicar = aplicarModificadorClasseAoDanoRecebido(defensor, danoCalculado, atacante);
+            System.out.println(defensor.getNome() + " recebeu " + danoParaAplicar + " de dano!");
+            defensor.receberDano(danoParaAplicar);
             return;
         }
 
-        // Se a strategy retornou qualquer mensagem explicativa, exiba-a para o usuário (sucesso ou falha)
+        // Mostrar mensagem retornada pela strategy (explica sucesso/falha)
         if (reaction.message != null && !reaction.message.isEmpty()) {
             System.out.println(reaction.message);
         }
 
         if (reaction.dodged) {
-            // mensagem já foi impressa acima
-            return;
+            return; // esquiva, nada a aplicar
         }
+
         if (reaction.blocked) {
-            defensor.receberDano(Math.max(0, reaction.damageTaken));
+            int danoParaAplicar = aplicarModificadorClasseAoDanoRecebido(defensor, Math.max(0, reaction.damageTaken), atacante);
+            System.out.println(defensor.getNome() + " recebeu " + danoParaAplicar + " de dano após o bloqueio!");
+            defensor.receberDano(danoParaAplicar);
+
             if (reaction.counterDamage > 0) {
-                System.out.println(defensor.getNome() + " contra-ataca causando " + reaction.counterDamage + " a " + atacante.getNome() + "!");
-                atacante.receberDano(reaction.counterDamage);
+                int counterAdj = aplicarModificadorClasseAoDanoRecebido(atacante, reaction.counterDamage, defensor);
+                System.out.println(defensor.getNome() + " contra-ataca causando " + counterAdj + " a " + atacante.getNome() + "!");
+                atacante.receberDano(counterAdj);
             }
             return;
         }
 
-        // sem reação efetiva (pode haver message informando falha)
-        System.out.println(defensor.getNome() + " recebeu " + Math.max(0, reaction.damageTaken) + " de dano!");
-        defensor.receberDano(Math.max(0, reaction.damageTaken));
+        // sem reação efetiva: aplicar damageTaken
+        int danoFinal = Math.max(0, reaction.damageTaken);
+        int danoParaAplicar = aplicarModificadorClasseAoDanoRecebido(defensor, danoFinal, atacante);
+        System.out.println(defensor.getNome() + " recebeu " + danoParaAplicar + " de dano!");
+        defensor.receberDano(danoParaAplicar);
+
         if (reaction.counterDamage > 0) {
-            System.out.println(defensor.getNome() + " causa " + reaction.counterDamage + " de contra-ataque a " + atacante.getNome() + "!");
-            atacante.receberDano(reaction.counterDamage);
+            int counterAdj = aplicarModificadorClasseAoDanoRecebido(atacante, reaction.counterDamage, defensor);
+            System.out.println(defensor.getNome() + " causa " + counterAdj + " de contra-ataque a " + atacante.getNome() + "!");
+            atacante.receberDano(counterAdj);
         }
     }
 
@@ -245,8 +265,9 @@ public class Batalha {
 
             if (escolha == 0) {
                 System.out.println("Você optou por não reagir.");
-                System.out.println(heroiDef.getNome() + " recebeu " + danoCalculado + " de dano!");
-                heroiDef.receberDano(danoCalculado);
+                int danoParaAplicar = aplicarModificadorClasseAoDanoRecebido(heroiDef, danoCalculado, atacante);
+                System.out.println(heroiDef.getNome() + " recebeu " + danoParaAplicar + " de dano!");
+                heroiDef.receberDano(danoParaAplicar);
                 return true;
             }
 
@@ -275,11 +296,12 @@ public class Batalha {
 
             if (rr == null) {
                 System.out.println("Erro no processamento da reação — dano aplicado.");
-                heroiDef.receberDano(danoCalculado);
+                int danoParaAplicar = aplicarModificadorClasseAoDanoRecebido(heroiDef, danoCalculado, atacante);
+                heroiDef.receberDano(danoParaAplicar);
                 return true;
             }
 
-            // Sempre exibir a mensagem retornada pela strategy (sucesso ou falha) para que o usuário saiba o resultado/porque falhou.
+            // Sempre exibir a mensagem retornada pela strategy (sucesso ou falha)
             if (rr.message != null && !rr.message.isEmpty()) {
                 System.out.println(rr.message);
             }
@@ -288,17 +310,23 @@ public class Batalha {
                 return true;
             }
             if (rr.blocked) {
-                heroiDef.receberDano(Math.max(0, rr.damageTaken));
+                int danoParaAplicar = aplicarModificadorClasseAoDanoRecebido(heroiDef, Math.max(0, rr.damageTaken), atacante);
+                heroiDef.receberDano(danoParaAplicar);
                 if (rr.counterDamage > 0) {
-                    System.out.println("Contra-ataque causa " + rr.counterDamage + " ao atacante.");
-                    atacante.receberDano(rr.counterDamage);
+                    int counterAdj = aplicarModificadorClasseAoDanoRecebido(atacante, rr.counterDamage, heroiDef);
+                    System.out.println("Contra-ataque causa " + counterAdj + " ao atacante.");
+                    atacante.receberDano(counterAdj);
                 }
                 return true;
             }
 
             // sem reação efetiva
-            heroiDef.receberDano(Math.max(0, rr.damageTaken));
-            if (rr.counterDamage > 0) atacante.receberDano(rr.counterDamage);
+            int danoParaAplicar = aplicarModificadorClasseAoDanoRecebido(heroiDef, Math.max(0, rr.damageTaken), atacante);
+            heroiDef.receberDano(danoParaAplicar);
+            if (rr.counterDamage > 0) {
+                int counterAdj = aplicarModificadorClasseAoDanoRecebido(atacante, rr.counterDamage, heroiDef);
+                atacante.receberDano(counterAdj);
+            }
             return true;
         }
     }
@@ -325,14 +353,17 @@ public class Batalha {
                 heroi.curarPor(res.curaAoHeroi);
                 System.out.println(heroi.getNome() + " recuperou " + res.curaAoHeroi + " de vida.");
             } else {
-                heroi.receberDano(-res.curaAoHeroi);
-                System.out.println(heroi.getNome() + " perdeu " + (-res.curaAoHeroi) + " de vida.");
+                int perda = -res.curaAoHeroi;
+                int perdaAdj = aplicarModificadorClasseAoDanoRecebido(heroi, perda, inimigo);
+                heroi.receberDano(perdaAdj);
+                System.out.println(heroi.getNome() + " perdeu " + perdaAdj + " de vida.");
             }
         }
 
         if (res.danoAoInimigo > 0) {
             System.out.println("Ação causa " + res.danoAoInimigo + " dano ao inimigo.");
-            inimigo.receberDano(res.danoAoInimigo);
+            int danoAdj = aplicarModificadorClasseAoDanoRecebido(inimigo, res.danoAoInimigo, heroi);
+            inimigo.receberDano(danoAdj);
         }
 
         if (res.tempAtkBuff > 0 && res.tempAtkBuffTurnos > 0) {
@@ -353,6 +384,23 @@ public class Batalha {
             invocacoes.add(res.invocacao);
             System.out.println(res.invocacao.getNome() + " foi invocado com " + res.invocacao.getVida() + " vida.");
         }
+    }
+
+    /**
+     * Aplica o ajuste de dano de entrada via classe do defensor (se houver e for Heroi).
+     * Retorna o dano ajustado.
+     */
+    private int aplicarModificadorClasseAoDanoRecebido(Personagem defensor, int dano, Personagem atacante) {
+        if (dano <= 0) return 0;
+        if (defensor instanceof Heroi) {
+            Heroi h = (Heroi) defensor;
+            if (h.getClasse() != null) {
+                try {
+                    dano = h.getClasse().modificarDanoEntrada(h, dano, atacante);
+                } catch (Throwable ignored) {}
+            }
+        }
+        return Math.max(0, dano);
     }
 
     private void mostrarStatusHeroi() {

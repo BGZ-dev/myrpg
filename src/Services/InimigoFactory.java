@@ -10,8 +10,7 @@ import java.util.Random;
 /**
  * SERVIÇO (Factory) - Versão estendida
  * Gera inimigos variados com nome, elemento, stats escalados por nível do herói e raridade.
- *
- * Integração: substitua o Services.InimigoFactory existente por este arquivo.
+ * Agora cada template inclui um AttackType (MELEE / RANGED / MAGIC / SPECIAL).
  */
 public class InimigoFactory {
     private static final Random rand = new Random();
@@ -25,9 +24,10 @@ public class InimigoFactory {
         final int defesaBase;
         final Elemento elemento;
         final Raridade raridade;
-        final double raridadeMultiplier; // multiplica stats
+        final double raridadeMultiplier;
+        final Inimigo.AttackType attackType;
 
-        Template(String nomeBase, int vidaBase, int ataqueBase, int defesaBase, Elemento elemento, Raridade raridade, double raridadeMultiplier) {
+        Template(String nomeBase, int vidaBase, int ataqueBase, int defesaBase, Elemento elemento, Raridade raridade, double raridadeMultiplier, Inimigo.AttackType attackType) {
             this.nomeBase = nomeBase;
             this.vidaBase = vidaBase;
             this.ataqueBase = ataqueBase;
@@ -35,30 +35,31 @@ public class InimigoFactory {
             this.elemento = elemento;
             this.raridade = raridade;
             this.raridadeMultiplier = raridadeMultiplier;
+            this.attackType = attackType == null ? Inimigo.AttackType.MELEE : attackType;
         }
     }
 
     private static final List<Template> TEMPLATES = new ArrayList<>();
     static {
         // COMUNS
-        TEMPLATES.add(new Template("Goblin", 40, 8, 4, Elemento.TERRA, Raridade.COMUM, 1.0));
-        TEMPLATES.add(new Template("Slime", 35, 6, 2, Elemento.AGUA, Raridade.COMUM, 1.0));
-        TEMPLATES.add(new Template("Bandido", 45, 10, 5, Elemento.AR, Raridade.COMUM, 1.0));
-        TEMPLATES.add(new Template("Lobo Selvagem", 50, 11, 3, Elemento.TERRA, Raridade.COMUM, 1.0));
+        TEMPLATES.add(new Template("Goblin", 40, 8, 4, Elemento.TERRA, Raridade.COMUM, 1.0, Inimigo.AttackType.MELEE));
+        TEMPLATES.add(new Template("Slime", 35, 6, 2, Elemento.AGUA, Raridade.COMUM, 1.0, Inimigo.AttackType.MAGIC));
+        TEMPLATES.add(new Template("Bandido", 45, 10, 5, Elemento.AR, Raridade.COMUM, 1.0, Inimigo.AttackType.RANGED));
+        TEMPLATES.add(new Template("Lobo Selvagem", 50, 11, 3, Elemento.TERRA, Raridade.COMUM, 1.0, Inimigo.AttackType.MELEE));
 
         // RAROS
-        TEMPLATES.add(new Template("Harpia", 70, 14, 6, Elemento.AR, Raridade.RARO, 1.25));
-        TEMPLATES.add(new Template("Necromante Aprendiz", 65, 16, 5, Elemento.SOMBRA, Raridade.RARO, 1.25));
-        TEMPLATES.add(new Template("Escudeiro Orc", 80, 18, 8, Elemento.TERRA, Raridade.RARO, 1.25));
+        TEMPLATES.add(new Template("Harpia", 70, 14, 6, Elemento.AR, Raridade.RARO, 1.25, Inimigo.AttackType.RANGED));
+        TEMPLATES.add(new Template("Necromante Aprendiz", 65, 16, 5, Elemento.SOMBRA, Raridade.RARO, 1.25, Inimigo.AttackType.MAGIC));
+        TEMPLATES.add(new Template("Escudeiro Orc", 80, 18, 8, Elemento.TERRA, Raridade.RARO, 1.25, Inimigo.AttackType.MELEE));
 
         // ELITE
-        TEMPLATES.add(new Template("Cavaleiro Sombrio", 120, 22, 12, Elemento.SOMBRA, Raridade.ELITE, 1.6));
-        TEMPLATES.add(new Template("Elemento de Gelo", 110, 20, 10, Elemento.GELO, Raridade.ELITE, 1.6));
-        TEMPLATES.add(new Template("Mago do Trovão", 105, 24, 8, Elemento.RAIO, Raridade.ELITE, 1.6));
+        TEMPLATES.add(new Template("Cavaleiro Sombrio", 120, 22, 12, Elemento.SOMBRA, Raridade.ELITE, 1.6, Inimigo.AttackType.MELEE));
+        TEMPLATES.add(new Template("Elemento de Gelo", 110, 20, 10, Elemento.GELO, Raridade.ELITE, 1.6, Inimigo.AttackType.MAGIC));
+        TEMPLATES.add(new Template("Mago do Trovão", 105, 24, 8, Elemento.RAIO, Raridade.ELITE, 1.6, Inimigo.AttackType.MAGIC));
 
         // CHEFE
-        TEMPLATES.add(new Template("Dragão Ancião", 250, 35, 20, Elemento.FOGO, Raridade.CHEFE, 2.4));
-        TEMPLATES.add(new Template("Lich Supremo", 220, 38, 15, Elemento.SOMBRA, Raridade.CHEFE, 2.4));
+        TEMPLATES.add(new Template("Dragão Ancião", 250, 35, 20, Elemento.FOGO, Raridade.CHEFE, 2.4, Inimigo.AttackType.SPECIAL));
+        TEMPLATES.add(new Template("Lich Supremo", 220, 38, 15, Elemento.SOMBRA, Raridade.CHEFE, 2.4, Inimigo.AttackType.SPECIAL));
     }
 
     /**
@@ -75,16 +76,14 @@ public class InimigoFactory {
 
         String nome = t.nomeBase + " [" + t.raridade.name() + "]";
 
-        // Mensagem curta no console (opcional)
-        System.out.println("-> Gerado inimigo: " + nome + " (" + t.elemento + ")  | Vida: " + vida + " ATQ: " + ataque + " DEF: " + defesa);
+        // Mensagem curta no console
+        System.out.println("-> Gerado inimigo: " + nome + " (" + t.elemento + ")  | Vida: " + vida + " ATQ: " + ataque + " DEF: " + defesa + " | Tipo de ataque: " + t.attackType);
 
-        return new Inimigo(nome, vida, ataque, defesa, t.elemento);
+        return new Inimigo(nome, vida, ataque, defesa, t.elemento, t.attackType);
     }
 
     // Escolhe um template com probabilidade maior para comuns, menor para chefes
     private static Template escolherTemplatePorPonderacao() {
-        // vamos criar uma lista onde cada raridade aparece proporcionalmente:
-        // COMUM: 60%, RARO: 25%, ELITE: 10%, CHEFE: 5%
         int roll = rand.nextInt(100);
         Raridade alvo;
         if (roll < 60) alvo = Raridade.COMUM;
@@ -92,12 +91,10 @@ public class InimigoFactory {
         else if (roll < 95) alvo = Raridade.ELITE;
         else alvo = Raridade.CHEFE;
 
-        // filtra templates da raridade escolhida e escolhe um aleatório entre eles
         List<Template> candidatos = new ArrayList<>();
         for (Template temp : TEMPLATES) {
             if (temp.raridade == alvo) candidatos.add(temp);
         }
-        // fallback: se não houver (não deve acontecer), escolhe qualquer template
         if (candidatos.isEmpty()) return TEMPLATES.get(rand.nextInt(TEMPLATES.size()));
         return candidatos.get(rand.nextInt(candidatos.size()));
     }

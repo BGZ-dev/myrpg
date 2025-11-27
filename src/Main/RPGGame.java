@@ -10,7 +10,7 @@ import Dominio.Classes.Assassino;
 import Dominio.Classes.Guerreiro;
 import Dominio.Classes.Barbaro;
 import Dominio.Classes.Mago;
-import Dominio.Classes.Bruxo;
+import Dominio.Classes.Feiticeiro;
 import Dominio.Classes.Invocador;
 import Dominio.Classes.Classe;
 
@@ -110,14 +110,13 @@ public class RPGGame {
         Classe classeEscolhida = null;
 
         if (escolhaClasse == 4) {
-            // Mago: pedir elementos (até 3)
+            // Mago: pedir elementos (até 3) — já implementado em outra versão
             List<Elemento> elementosEscolhidos = new ArrayList<>();
             System.out.println("\nVocê escolheu Mago. Pode escolher até 3 elementos para usar nos feitiços.");
-            System.out.println("Digite os números separados por espaço (ex: 1 3 5) ou apenas ENTER para não restringir (usar todos):");
             for (int i = 0; i < Elemento.values().length; i++) {
                 System.out.println((i + 1) + ". " + Elemento.values()[i]);
             }
-            System.out.print("Escolha (1-8) até 3 elementos: ");
+            System.out.print("Escolha (1-8) até 3 elementos (ex: 1 3 5) ou ENTER para nenhum: ");
             String linha = scanner.nextLine().trim();
             if (!linha.isEmpty()) {
                 String[] tokens = linha.split("\\s+");
@@ -131,34 +130,47 @@ public class RPGGame {
                                 if (elementosEscolhidos.size() >= 3) break;
                             }
                         }
-                    } catch (NumberFormatException ignored) {
-                    }
+                    } catch (NumberFormatException ignored) {}
+                }
+            }
+            classeEscolhida = new Mago(elementosEscolhidos);
+        } else if (escolhaClasse == 6) {
+            List<Elemento> elementosEscolhidos = new ArrayList<>();
+            System.out.println("\nVocê escolheu Invocador. Pode escolher até 3 elementos para suas invocações.");
+            for (int i = 0; i < Elemento.values().length; i++) {
+                System.out.println((i + 1) + ". " + Elemento.values()[i]);
+            }
+            System.out.print("Escolha (1-8) até 3 elementos (ex: 2 4) ou ENTER para nenhum: ");
+            String linha = scanner.nextLine().trim();
+            if (!linha.isEmpty()) {
+                String[] tokens = linha.split("\\s+");
+                for (String t : tokens) {
+                    try {
+                        int idx = Integer.parseInt(t);
+                        if (idx >= 1 && idx <= Elemento.values().length) {
+                            Elemento e = Elemento.values()[idx - 1];
+                            if (!elementosEscolhidos.contains(e)) {
+                                elementosEscolhidos.add(e);
+                                if (elementosEscolhidos.size() >= 3) break;
+                            }
+                        }
+                    } catch (NumberFormatException ignored) {}
                 }
             }
             if (elementosEscolhidos.isEmpty()) {
-                System.out.println("Elementos selecionados para o Mago: Nenhum (pode usar qualquer elemento).");
+                System.out.println("Elementos selecionados para o Invocador: Nenhum (pode invocar qualquer elemento).");
             } else {
-                System.out.println("Elementos selecionados para o Mago: " + elementosEscolhidos);
+                System.out.println("Elementos selecionados para o Invocador: " + elementosEscolhidos);
             }
-            classeEscolhida = new Mago(elementosEscolhidos);
+            classeEscolhida = new Invocador(elementosEscolhidos);
         } else {
             // outras classes
             switch (escolhaClasse) {
-                case 1:
-                    classeEscolhida = new Assassino();
-                    break;
-                case 2:
-                    classeEscolhida = new Guerreiro();
-                    break;
-                case 3:
-                    classeEscolhida = new Barbaro();
-                    break;
-                case 5:
-                    classeEscolhida = new Bruxo();
-                    break;
-                default:
-                    classeEscolhida = new Invocador();
-                    break;
+                case 1 -> classeEscolhida = new Assassino();
+                case 2 -> classeEscolhida = new Guerreiro();
+                case 3 -> classeEscolhida = new Barbaro();
+                case 5 -> classeEscolhida = new Feiticeiro();
+                default -> classeEscolhida = new Assassino(); // fallback (não deve ocorrer)
             }
         }
 

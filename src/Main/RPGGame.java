@@ -33,10 +33,10 @@ public class RPGGame {
         Arma armaEscolhida = ArmaFactory.escolherArma(scanner);
 
         final int pontosTotais = 20;
-        int forcaExtra = 0, destrezaExtra = 0, constituicaoExtra = 0, inteligenciaExtra = 0, sorteExtra = 0;
+        int forcaExtra = 0, destrezaExtra = 0, constituicaoExtra = 0, inteligenciaExtra = 0, encantamentoExtra = 0;
 
-        System.out.println("\nVocê tem até " + pontosTotais + " pontos para distribuir entre Força, Destreza, Constituição, Inteligência e Sorte.");
-        System.out.println("Valores base: Força=10 + bônus da arma, Destreza=8, Constituição=10, Inteligência=8, Sorte=5.");
+        System.out.println("\nVocê tem até " + pontosTotais + " pontos para distribuir entre Força, Destreza, Constituição, Inteligência e Encantamento.");
+        System.out.println("Valores base: Força=10 + bônus da arma, Destreza=8, Constituição=10, Inteligência=8, Encantamento=5.");
 
         while (true) {
             try {
@@ -48,12 +48,12 @@ public class RPGGame {
                 constituicaoExtra = scanner.nextInt();
                 System.out.print("Pontos para Inteligência (inteiro >= 0): ");
                 inteligenciaExtra = scanner.nextInt();
-                System.out.print("Pontos para Sorte (inteiro >= 0): ");
-                sorteExtra = scanner.nextInt();
-                scanner.nextLine(); // limpa buffer
+                System.out.print("Pontos para Encantamento (inteiro >= 0): ");
+                encantamentoExtra = scanner.nextInt();
+                scanner.nextLine();
 
-                int soma = forcaExtra + destrezaExtra + constituicaoExtra + inteligenciaExtra + sorteExtra;
-                if (forcaExtra < 0 || destrezaExtra < 0 || constituicaoExtra < 0 || inteligenciaExtra < 0 || sorteExtra < 0) {
+                int soma = forcaExtra + destrezaExtra + constituicaoExtra + inteligenciaExtra + encantamentoExtra;
+                if (forcaExtra < 0 || destrezaExtra < 0 || constituicaoExtra < 0 || inteligenciaExtra < 0 || encantamentoExtra < 0) {
                     System.out.println("Não pode usar números negativos. Tente novamente.");
                     continue;
                 }
@@ -72,20 +72,20 @@ public class RPGGame {
         int baseDestreza = 8;
         int baseConstituicao = 10;
         int baseInteligencia = 8;
-        int baseSorte = 5;
+        int baseEncantamento = 5;
 
         int forcaFinal = baseForca + forcaExtra;
         int destrezaFinal = baseDestreza + destrezaExtra;
         int constituicaoFinal = baseConstituicao + constituicaoExtra;
         int inteligenciaFinal = baseInteligencia + inteligenciaExtra;
-        int sorteFinal = baseSorte + sorteExtra;
+        int encantamentoFinal = baseEncantamento + encantamentoExtra;
 
         System.out.println("\nAtributos finais:");
         System.out.println(" Força: " + forcaFinal);
         System.out.println(" Destreza: " + destrezaFinal);
         System.out.println(" Constituição: " + constituicaoFinal);
         System.out.println(" Inteligência: " + inteligenciaFinal);
-        System.out.println(" Sorte: " + sorteFinal);
+        System.out.println(" Sorte: " + encantamentoFinal);
 
         // Escolha de classe
         System.out.println("\nEscolha sua classe:");
@@ -174,7 +174,7 @@ public class RPGGame {
             }
         }
 
-        Heroi heroi = new Heroi(nomeHeroi, armaEscolhida, forcaFinal, destrezaFinal, constituicaoFinal, inteligenciaFinal, sorteFinal, classeEscolhida);
+        Heroi heroi = new Heroi(nomeHeroi, armaEscolhida, forcaFinal, destrezaFinal, constituicaoFinal, inteligenciaFinal, encantamentoFinal, classeEscolhida);
 
         System.out.println("\nOlá, " + heroi.getNome() + "! Sua jornada começa agora...\n");
 

@@ -20,12 +20,18 @@ import java.util.Random;
 import java.util.Scanner;
 
 /**
- * Batalha — versão completa e consistente:
- * - reações manuais e automáticas via ReactionService
- * - mostra tipo de ataque do inimigo (se disponível)
- * - invocações: listagem e remoção apenas quando vida <= 0
- * - aplicação de modificarDanoEntrada da classe do defensor antes de aplicar dano
- * - sem prints de debug intrusivos
+ * Batalha — versão com controle de limite de invocações por nível.
+ *
+ * Principais mudanças:
+ * - Invocações permanecem ativas até que sua vida chegue a zero (cleanupInvocacoes).
+ * - Ao tentar adicionar uma invocação (ação de classe retorna res.invocacao),
+ *   checamos o limite permitido para o nível do herói e só adicionamos se houver espaço.
+ * - Limites por nível:
+ *     nível 1..3  => 1
+ *     nível 4..5  => 2
+ *     nível 6..7  => 3
+ *     nível 8..10 => 4
+ *     nível >= 11 => 5
  */
 public class Batalha {
 
@@ -406,9 +412,17 @@ public class Batalha {
             System.out.println("Lifesteal aumentado em " + (int) (res.lifestealBonus * 100) + "% por " + res.lifestealTurnos + " turnos.");
         }
 
+        // Aqui controlamos o limite de invocações por nível antes de adicionar
         if (res.invocacao != null) {
-            invocacoes.add(res.invocacao);
-            System.out.println(res.invocacao.getNome() + " foi invocado com " + res.invocacao.getVida() + " vida.");
+            int limite = maxInvocacoesPermitidas(heroi.getNivel());
+            int ativas = invocacoes.size();
+            if (ativas >= limite) {
+                System.out.println("❌ Você não pode invocar mais. Limite de invocações para seu nível (" + heroi.getNivel() + ") é: " + limite + " (ativas: " + ativas + ").");
+            } else {
+                invocacoes.add(res.invocacao);
+                System.out.println(res.invocacao.getNome() + " foi invocado com " + res.invocacao.getVida() + " vida.");
+                System.out.println("Invocações ativas: " + (invocacoes.size()) + "/" + limite);
+            }
         }
     }
 
@@ -428,28 +442,15 @@ public class Batalha {
         }
     }
 
-    /**
-     * Lista as invocações ativas com detalhes (nome, elemento, vida atual, ataque).
-     * Não consome turno.
-     */
-    private void mostrarInvocacoesAtivas() {
-        System.out.println("\n=== INVOCAÇÕES ATIVAS ===");
-        if (invocacoes.isEmpty()) {
-            System.out.println("Nenhuma invocação ativa no momento.");
-        } else {
-            int i = 1;
-            for (Invocacao p : invocacoes) {
-                System.out.println(i + ". " + p.getNome() + " | Elemento: " + p.getElemento() + " | Vida: " + p.getVida() + " | Ataque: " + p.getAtaque());
-                i++;
-            }
-        }
-        System.out.println("=========================\n");
+    private int maxInvocacoesPermitidas(int nivel) {
+        if (nivel <= 0) return 1;
+        if (nivel <= 3) return 1;
+        if (nivel <= 5) return 2;
+        if (nivel <= 7) return 3;
+        if (nivel <= 10) return 4;
+        return 5;
     }
 
-    /**
-     * Aplica o ajuste de dano de entrada via classe do defensor (se houver e for Heroi).
-     * Retorna o dano ajustado (não negativo).
-     */
     private int aplicarModificadorClasseAoDanoRecebido(Personagem defensor, int dano, Personagem atacante) {
         if (dano <= 0) return 0;
         if (defensor instanceof Heroi) {
@@ -495,5 +496,20 @@ public class Batalha {
             }
         }
         System.out.println("==============\n");
+    }
+    private void mostrarInvocacoesAtivas() {
+        System.out.println("\n=== INVOCAÇÕES ATIVAS ===");
+        if (invocacoes.isEmpty()) {
+            System.out.println("Nenhuma invocação ativa no momento.");
+        } else {
+            int i = 1;
+            for (Invocacao p : invocacoes) {
+                System.out.println(i + ". " + p.getNome() + " | Elemento: " + p.getElemento() + " | Vida: " + p.getVida() + " | Ataque: " + p.getAtaque());
+                i++;
+            }
+            int limite = maxInvocacoesPermitidas(heroi.getNivel());
+            System.out.println("Total: " + invocacoes.size() + " / Limite para nível " + heroi.getNivel() + " = " + limite);
+        }
+        System.out.println("=========================\n");
     }
 }

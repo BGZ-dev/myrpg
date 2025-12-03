@@ -15,7 +15,6 @@ public class Assassino implements Classe {
 
     @Override
     public int modificarDanoSaida(Heroi heroi, int danoBase, Object alvo) {
-        // passivo já descrito antes
         double chance = 0.10 + heroi.getDestreza() * 0.02 + heroi.getSorte() * 0.005;
         if (chance > 0.9) chance = 0.9;
         if (rand.nextDouble() < chance) {

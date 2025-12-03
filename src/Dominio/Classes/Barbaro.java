@@ -30,10 +30,9 @@ public class Barbaro implements Classe {
 
     @Override
     public AcaoResultado executarAcao(Heroi heroi, Inimigo inimigo, Scanner scanner) {
-        // Fúria Bárbara: sacrifica parte da vida atual para causar dano massivo no inimigo
         AcaoResultado r = new AcaoResultado();
         int sacrificar = Math.max(1, (int)Math.round(heroi.getVida() * 0.12));
-        r.curaAoHeroi = -sacrificar; // sinal negativo para indicar perda de vida (Batalha aplica)
+        r.curaAoHeroi = -sacrificar;
         int dano = heroi.calcularDanoBase() + sacrificar * 2;
         r.danoAoInimigo = dano;
         r.mensagem = "😡 Fúria Bárbara: perdeu " + sacrificar + " vida e causou " + dano + " dano!";

@@ -34,12 +34,10 @@ public class Assassino implements Classe {
 
     @Override
     public AcaoResultado executarAcao(Heroi heroi, Inimigo inimigo, Scanner scanner) {
-        // Ação ativa: Golpe Sombrio — ataque concentrado que tem grande chance de crítico e causa dano extra baseado em Destreza
         AcaoResultado r = new AcaoResultado();
         int base = heroi.calcularDanoBase();
         int extra = (int)Math.round(heroi.getDestreza() * 1.5) + (int)Math.round(heroi.getSorte() * 0.5);
         int dano = base + extra;
-        // aumenta chance de crítico na ação manualmente (aplica multiplicador)
         if (rand.nextDouble() < 0.45 + heroi.getSorte()*0.01) {
             dano = (int)Math.round(dano * 1.8);
             r.mensagem = "⚔️ Golpe Sombrio acerta com crítico!";

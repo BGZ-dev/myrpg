@@ -10,11 +10,6 @@ import java.util.List;
 import java.util.Random;
 import java.util.Scanner;
 
-/**
- * Feiticeiro (antigo Bruxo) — renomeado e usando 'encantamento' como atributo.
- * - pode ser construído com elementos permitidos (até 3)
- * - aplicarEncantamento foi mantido no Heroi; aqui a ação aplica encantamento ao herói.
- */
 public class Feiticeiro implements Classe {
 
     private final Random rand = new Random();
@@ -40,21 +35,19 @@ public class Feiticeiro implements Classe {
 
     @Override
     public int modificarDanoSaida(Heroi heroi, int danoBase, Object alvo) {
-        return danoBase; // sem mod passivo adicional
+        return danoBase;
     }
 
     @Override
     public int modificarDanoEntrada(Heroi heroi, int danoRecebido, Object atacante) {
-        return danoRecebido; // sem redução passiva
-    }
+        return danoRecebido;
 
     @Override
     public void aplicarBuffInicial(Heroi heroi) {
-        // sem buff inicial
     }
 
     @Override
-    public void aoFinalDoTurno(Heroi heroi, Inimigo inimigo) { /* sem efeito por turno */ }
+    public void aoFinalDoTurno(Heroi heroi, Inimigo inimigo) { }
 
     @Override
     public AcaoResultado executarAcao(Heroi heroi, Inimigo inimigo, Scanner scanner) {
@@ -87,7 +80,6 @@ public class Feiticeiro implements Classe {
         try { escolha = scanner.nextInt(); scanner.nextLine(); } catch (Exception e) { scanner.nextLine(); }
         Elemento elemento = opcoes.get(Math.max(0, Math.min(opcoes.size()-1, escolha-1)));
 
-        // Potência e duração calculadas a partir do atributo encantamento do heroi
         int ench = Math.max(0, heroi.getEncantamento());
         double multiplicador = 0.4 + ench * 0.08;
         if (multiplicador > 2.0) multiplicador = 2.0;
